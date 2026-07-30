@@ -1,0 +1,14 @@
+[Unit]
+Description=SSH-TOOL-KIT
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/etc/Desktop/SSHToolkit
+ExecStart=/usr/bin/python3 -u /etc/Desktop/SSHToolkit
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=multi-user.target

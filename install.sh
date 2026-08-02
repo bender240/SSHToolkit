@@ -1,3 +1,5 @@
+
+Copy
 #!/bin/bash
 
 # Exit on any error, unset variable, or failed pipe
@@ -34,30 +36,32 @@ install_hydra() {
     case "$DISTRO" in
         ubuntu|debian|pop|mint)
             apt-get update -y
-            apt-get install -y hydra wget curl
+            apt-get install -y hydra wget curl python3
             ;;
         fedora|rhel|centos)
-            dnf install -y hydra wget curl
+            dnf install -y hydra wget curl python3
             ;;
         arch)
             pacman -Syu --noconfirm
-            pacman -S --noconfirm hydra wget curl
+            pacman -S --noconfirm hydra wget curl python3
             ;;
         *)
             log_warn "Unknown distro '$DISTRO'. Attempting fallback to 'hydra' package..."
-            if command -v apt-get &> /dev/null; then apt-get install -y hydra wget
-            elif command -v dnf &> /dev/null; then dnf install -y hydra wget
-            else log_error "Could not safely determine package manager. Install 'hydra' manually."; fi
+            if command -v apt-get &> /dev/null; then apt-get install -y hydra wget curl python3
+            elif command -v dnf &> /dev/null; then dnf install -y hydra wget curl python3
+            else log_error "Could not safely determine package manager. Install 'hydra' and 'python3' manually."; fi
             ;;
     esac
 }
 
 # --- Download & Configure SSH-MITM ---
 install_ssh_mitm() {
-    TARGET_DIR="/opt/SSHtoolKit/mitm"
+    TARGET_DIR="/opt/SSHToolkit/mitm"
     BIN_DIR="/usr/local/bin"
     APPIMAGE_NAME="ssh-mitm-x86_64.AppImage"
-    URL="https://github.com{APPIMAGE_NAME}"
+    
+    # Correct URL provided by user
+    URL="https://github.com/ssh-mitm/ssh-mitm/releases/latest/download/ssh-mitm-x86_64.AppImage"
 
     log_info "Creating target directory at ${TARGET_DIR}..."
     mkdir -p "${TARGET_DIR}"
@@ -72,15 +76,67 @@ install_ssh_mitm() {
     ln -sf "${TARGET_DIR}/${APPIMAGE_NAME}" "${BIN_DIR}/ssh-mitm"
 }
 
+# --- Setup Crawler.py Systemd Service ---
+setup_crawler_service() {
+    CRAWLER_PY="/opt/SSHToolkit/crawler.py"
+    SERVICE_NAME="crawler"
+    SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+
+    if [ ! -f "$CRAWLER_PY" ]; then
+        log_warn "crawler.py not found at $CRAWLER_PY. Service may fail until file is placed."
+    fi
+
+    log_info "Creating systemd service for crawler.py..."
+    
+    cat > "$SERVICE_FILE" <<EOF
+[Unit]
+Description=SSH Toolkit Crawler
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 ${CRAWLER_PY}
+WorkingDirectory=/opt/SSHtToolkit
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    log_info "Reloading systemd daemon..."
+    systemctl daemon-reload
+
+    log_info "Enabling and starting ${SERVICE_NAME}.service..."
+    systemctl enable ${SERVICE_NAME}.service
+    systemctl start ${SERVICE_NAME}.service
+
+    log_info "Crawler service status:"
+    systemctl status ${SERVICE_NAME}.service --no-pager || true
+}
+
 # --- Main Flow ---
 main() {
     check_requirements
+    
+    # NEW: Create and CD into /opt/SSHtoolKit
+    TOOLKIT_DIR="/opt/SSHToolkit"
+    if [ ! -d "$TOOLKIT_DIR" ]; then
+        log_info "Creating toolkit directory: $TOOLKIT_DIR"
+        mkdir -p "$TOOLKIT_DIR"
+    fi
+    
+    log_info "Changing directory to $TOOLKIT_DIR"
+    cd "$TOOLKIT_DIR"
+    
     install_hydra
     install_ssh_mitm
+    setup_crawler_service
     
     echo -e "\n${GREEN}✔ Verification Complete!${NC}"
     echo -e "-> Hydra version: $(hydra -h | head -n 1)"
     echo -e "-> SSH-MITM path: /usr/local/bin/ssh-mitm"
+    echo -e "-> Crawler Service: active (run 'systemctl status crawler' for details)"
     echo -e "\nYou can now run the tools globally using ${YELLOW}hydra${NC} or ${YELLOW}ssh-mitm${NC}."
 }
 

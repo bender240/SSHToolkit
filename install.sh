@@ -57,7 +57,7 @@ install_hydra() {
 
 # --- Download & Configure SSH-MITM ---
 install_ssh_mitm() {
-    TARGET_DIR="/opt/SSHtoolKit/mitm"
+    TARGET_DIR="/opt/SSHToolkit/mitm"
     BIN_DIR="/usr/local/bin"
     APPIMAGE_NAME="ssh-mitm-x86_64.AppImage"
     
@@ -79,7 +79,7 @@ install_ssh_mitm() {
 
 # --- Setup Targets Directory ---
 setup_targets() {
-    TARGETS_DIR="/opt/targets"
+    TARGETS_DIR="/opt/SSHToolkit/targets"
     IPS_FILE="${TARGETS_DIR}/ips.txt"
 
     log_info "Creating targets directory: ${TARGETS_DIR}..."
@@ -92,7 +92,7 @@ setup_targets() {
 
 # --- Move Crawler.py and Setup Systemd Service ---
 setup_crawler() {
-    TOOLKIT_DIR="/opt/SSHtoolKit"
+    TOOLKIT_DIR="/opt/SSHToolkit"
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     CRAWLER_SOURCE="${SCRIPT_DIR}/crawler.py"
     CRAWLER_DEST="${TOOLKIT_DIR}/crawler.py"
@@ -144,7 +144,7 @@ main() {
     check_requirements
     
     # Create /opt/SSHtoolKit directory
-    TOOLKIT_DIR="/opt/SSHtoolKit"
+    TOOLKIT_DIR="/opt/SSHToolkit"
     if [ ! -d "$TOOLKIT_DIR" ]; then
         log_info "Creating toolkit directory: $TOOLKIT_DIR"
         mkdir -p "$TOOLKIT_DIR"

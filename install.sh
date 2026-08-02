@@ -1,3 +1,4 @@
+Here is the updated script. It creates the /opt/targets directory and an ips.txt file inside it.
 
 Copy
 #!/bin/bash
@@ -56,7 +57,7 @@ install_hydra() {
 
 # --- Download & Configure SSH-MITM ---
 install_ssh_mitm() {
-    TARGET_DIR="/opt/SSHToolkit/mitm"
+    TARGET_DIR="/opt/SSHtoolKit/mitm"
     BIN_DIR="/usr/local/bin"
     APPIMAGE_NAME="ssh-mitm-x86_64.AppImage"
     
@@ -76,16 +77,39 @@ install_ssh_mitm() {
     ln -sf "${TARGET_DIR}/${APPIMAGE_NAME}" "${BIN_DIR}/ssh-mitm"
 }
 
-# --- Setup Crawler.py Systemd Service ---
-setup_crawler_service() {
-    CRAWLER_PY="/opt/SSHToolkit/crawler.py"
+# --- Setup Targets Directory ---
+setup_targets() {
+    TARGETS_DIR="/opt/targets"
+    IPS_FILE="${TARGETS_DIR}/ips.txt"
+
+    log_info "Creating targets directory: ${TARGETS_DIR}..."
+    mkdir -p "${TARGETS_DIR}"
+
+    # Create ips.txt if it doesn't exist, or clear it
+    touch "${IPS_FILE}"
+    log_info "Created ${IPS_FILE}"
+}
+
+# --- Move Crawler.py and Setup Systemd Service ---
+setup_crawler() {
+    TOOLKIT_DIR="/opt/SSHtoolKit"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    CRAWLER_SOURCE="${SCRIPT_DIR}/crawler.py"
+    CRAWLER_DEST="${TOOLKIT_DIR}/crawler.py"
     SERVICE_NAME="crawler"
     SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 
-    if [ ! -f "$CRAWLER_PY" ]; then
-        log_warn "crawler.py not found at $CRAWLER_PY. Service may fail until file is placed."
+    # 1. Move crawler.py from script directory to Toolkit directory
+    if [ -f "$CRAWLER_SOURCE" ]; then
+        log_info "Moving crawler.py from ${SCRIPT_DIR} to ${TOOLKIT_DIR}..."
+        mv "$CRAWLER_SOURCE" "$CRAWLER_DEST"
+        chmod +x "$CRAWLER_DEST"
+        log_info "crawler.py moved successfully."
+    else
+        log_warn "crawler.py not found in ${SCRIPT_DIR}. Service may fail."
     fi
 
+    # 2. Create systemd service
     log_info "Creating systemd service for crawler.py..."
     
     cat > "$SERVICE_FILE" <<EOF
@@ -95,8 +119,8 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 ${CRAWLER_PY}
-WorkingDirectory=/opt/SSHtToolkit
+ExecStart=/usr/bin/python3 ${CRAWLER_DEST}
+WorkingDirectory=${TOOLKIT_DIR}
 Restart=on-failure
 RestartSec=5
 
@@ -119,23 +143,22 @@ EOF
 main() {
     check_requirements
     
-    # NEW: Create and CD into /opt/SSHtoolKit
-    TOOLKIT_DIR="/opt/SSHToolkit"
+    # Create /opt/SSHtoolKit directory
+    TOOLKIT_DIR="/opt/SSHtoolKit"
     if [ ! -d "$TOOLKIT_DIR" ]; then
         log_info "Creating toolkit directory: $TOOLKIT_DIR"
         mkdir -p "$TOOLKIT_DIR"
     fi
     
-    log_info "Changing directory to $TOOLKIT_DIR"
-    cd "$TOOLKIT_DIR"
-    
     install_hydra
     install_ssh_mitm
-    setup_crawler_service
+    setup_targets
+    setup_crawler
     
     echo -e "\n${GREEN}✔ Verification Complete!${NC}"
     echo -e "-> Hydra version: $(hydra -h | head -n 1)"
     echo -e "-> SSH-MITM path: /usr/local/bin/ssh-mitm"
+    echo -e "-> Targets directory: /opt/targets"
     echo -e "-> Crawler Service: active (run 'systemctl status crawler' for details)"
     echo -e "\nYou can now run the tools globally using ${YELLOW}hydra${NC} or ${YELLOW}ssh-mitm${NC}."
 }

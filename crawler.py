@@ -12,6 +12,7 @@ while loopControl:
         "3. Print targets\n"
         "4. Feed Targets for dict. attack\n"
         "5. Exit \n"
+        "6. Print Dict. Attack Outputs"
         "> "
     )
 
@@ -70,6 +71,8 @@ while loopControl:
     elif user_choice == "5":
         print("Exiting program.")
         break
-
+    elif user_choice =="6":
+        with open('output.txt','r') as file:
+            print(file.read())
     else:
         print("Wrong Input...try again.")

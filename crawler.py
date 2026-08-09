@@ -39,14 +39,14 @@ while loopControl:
         targets = "targets/ips.txt"
         if not os.path.isfile(targets):
             print("ADD SOME TARGETS FIRST")
-            return
+            sys.exit()
         if os.path.getsize(targets) ==0:
             print(f"ADD SOME TARGETS FIRST")
-            return
+            sys.exit()
         if not wordlists:
             print("\n[-] No wordlists found in 'passwords/' directory.")
             print("    Ensure files are named: hydra_split_1.txt, hydra_split_2.txt, etc.")
-       
+            sys.exit()
         
         else:
             print(f"\n[+] Found {len(wordlists)} wordlists.")

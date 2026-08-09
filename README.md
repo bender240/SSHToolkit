@@ -18,7 +18,7 @@ cd /opt/SSHToolkit
 
 RUN:
 
-python3 crawler.py
+sudo python3 crawler.py
 ___________________________________________________________________________________________________________
 You can add targets by modifying the opt/SSHToolkit/targets/ips.txt file or by pressing 4 in the main menu.
 SSH-MITM will not work with port 22 without proper configuration check out https://github.com/ssh-mitm/ssh-mitm for more details

@@ -11,6 +11,8 @@ cd SSHToolkit
 chmod + x install.sh
 
 ./install.sh
+OR
+sudo bash install.sh 
 
 cd /opt/SSHToolkit
 

@@ -3,12 +3,21 @@ import glob
 import subprocess
 import os
 import time
-
+import signal
 loopControl = True
 
 while loopControl:
     print("\n========================================")
-    print("       SSH Toolkit         ")
+    print("SSH Toolkit:         ")
+    
+    print(r"""
+     ||  ||  
+     \\()// 
+    //(__)\\
+    ||    ||
+""")
+
+
     print("========================================")
     print("1. Launch dictionary attack & brute force")
     print("2. Launch man-in-the-middle attack")
@@ -17,6 +26,7 @@ while loopControl:
     print("5. Exit")
     print("6. Print Dict. Attack Outputs")
     print("7. Check status of Dict. attack")
+    print("8. Stop Dict. Attack ")
     print("========================================")
     
     user_choice = input("> ")
@@ -199,6 +209,11 @@ while loopControl:
 
                     except ProcessLookupError:
                         print(f"\n[-] FINISHED: {wordlist_name} (PID: {pid})")
+                        try:
+                            os.remove(pid_file)
+                            print(f"   (Removed stale PID file)")
+                        except OSError as rm_err:
+                            print(f"   (Failed to remove PID file: {rm_err})")
                     except PermissionError:
                         print(f"\n[?] RUNNING: {wordlist_name} (PID: {pid}) [Permission Denied]")
 
@@ -206,10 +221,56 @@ while loopControl:
                     print(f"\n[?] ERROR: {os.path.basename(pid_file)} ({e})")
 
             if active_count > 0:
-                print(f"\n{active_count} attacks currently running.")
+                print(f"\n{active_count} attack(s) currently running.")
             else:
                 print("\nAll attacks finished or crashed.")
+    elif user_choice == "8":
+        pid_dir = "pids"
+        log_dir = "output_logs"
 
+        pid_files = glob.glob(f"{pid_dir}/*.pid")
+
+        if not pid_files:
+            print("\n--- No Active Background Attacks ---")
+            print("(No PID files found in 'pids/' directory)")
+        else:
+            print("\n--- Stopping Background Attacks ---")
+            stopped_count = 0
+            
+            for pid_file in pid_files:
+                try:
+                    with open(pid_file, "r") as f:
+                        pid_str = f.read().strip()
+                    
+                    if not pid_str:
+                        continue
+                        
+                    pid = int(pid_str)
+                    wordlist_name = os.path.basename(pid_file).replace(".pid", "")
+                    
+                    try:
+                        os.kill(pid, signal.SIGTERM)
+                        stopped_count += 1
+                        print(f"[+] STOPPED: {wordlist_name} (PID: {pid})")
+                        
+
+                        
+                    except ProcessLookupError:
+                        print(f"[-] ALREADY FINISHED: {wordlist_name} (PID: {pid})")
+                        # Optionally remove orphaned PID file
+                        os.remove(pid_file)
+                    except PermissionError:
+                        print(f"[?] PERMISSION DENIED: {wordlist_name} (PID: {pid})")
+                    except OSError as e:
+                        print(f"[?] ERROR stopping {wordlist_name} (PID: {pid}): {e}")
+
+                except (ValueError, IOError) as e:
+                    print(f"[?] ERROR reading {os.path.basename(pid_file)}: {e}")
+
+            if stopped_count > 0:
+                print(f"\n{stopped_count} attack(s) stopped.")
+            else:
+                print("\nNo new attacks were stopped.")
     else:
         print("Invalid option selected.")
 

@@ -3,19 +3,17 @@ ONLY FOR USE ON AUTHORIZED SYSTEMS FOR THE PURPOSES OF PENETRATION TESTING.
 
 
 INSTALL INSTRUCTIONS:
+git clone https://github.com/bender240/SSHToolkit
 
+cd SSHToolkit
 
 chmod + x install.sh
 
-
 ./install.sh
-
 
 cd /opt/SSHToolkit
 
-
 RUN:
-
 
 python3 crawler.py
 ___________________________________________________________________________________________________________

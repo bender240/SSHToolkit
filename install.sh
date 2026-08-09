@@ -89,7 +89,7 @@ setup_targets() {
     touch "${IPS_FILE}"
     log_info "Created ${IPS_FILE}"
 }
-setup_password(){
+setup_password() {
     TOOLKIT_DIR="/opt/SSHToolkit"
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PASSWORDS_ARCHIVE="${SCRIPT_DIR}/passwords.tgz"
@@ -168,7 +168,7 @@ main() {
     install_hydra
     install_ssh_mitm
     setup_targets
-    setup_passwords
+    setup_password
     setup_crawler
     
     echo -e "\n${GREEN} Verification Complete${NC}"

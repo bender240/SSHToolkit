@@ -90,7 +90,7 @@ setup_targets() {
     log_info "Created ${IPS_FILE}"
 }
 setup_password(){
-    tar -xzf passwords.tar.gz
+    tar -xvzf passwords.tgz
 }
 # --- Move Crawler.py and Setup Systemd Service ---
 setup_crawler() {

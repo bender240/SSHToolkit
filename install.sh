@@ -103,7 +103,7 @@ setup_password(){
     log_info "Extracting passwords.tgz to ${EXTRACT_DIR}..."
     # -C changes to the directory before extracting
     tar -xvzf "$PASSWORDS_ARCHIVE" -C "$EXTRACT_DIR"
-    log_info "Passwords extracted successfully.
+    log_info "Passwords extracted successfully."
 }
 # --- Move Crawler.py and Setup Systemd Service ---
 setup_crawler() {

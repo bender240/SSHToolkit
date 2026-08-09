@@ -89,7 +89,9 @@ setup_targets() {
     touch "${IPS_FILE}"
     log_info "Created ${IPS_FILE}"
 }
-
+setup_password(){
+    tar -xzf passwords.tar.gz
+}
 # --- Move Crawler.py and Setup Systemd Service ---
 setup_crawler() {
     TOOLKIT_DIR="/opt/SSHToolkit"
@@ -153,9 +155,10 @@ main() {
     install_hydra
     install_ssh_mitm
     setup_targets
+    setup_passwords
     setup_crawler
     
-    echo -e "\n${GREEN}✔ Verification Complete!${NC}"
+    echo -e "\n${GREEN} Verification Complete${NC}"
     echo -e "-> Hydra version: $(hydra -h | head -n 1)"
     echo -e "-> SSH-MITM path: /usr/local/bin/ssh-mitm"
     echo -e "-> Targets directory: /opt/targets"

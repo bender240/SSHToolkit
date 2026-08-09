@@ -90,7 +90,20 @@ setup_targets() {
     log_info "Created ${IPS_FILE}"
 }
 setup_password(){
-    tar -xvzf passwords.tgz
+    TOOLKIT_DIR="/opt/SSHToolkit"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PASSWORDS_ARCHIVE="${SCRIPT_DIR}/passwords.tgz"
+    EXTRACT_DIR="${TOOLKIT_DIR}" 
+
+    if [ ! -f "$PASSWORDS_ARCHIVE" ]; then
+        log_warn "passwords.tgz not found in ${SCRIPT_DIR}. Skipping..."
+        return 0
+    fi
+
+    log_info "Extracting passwords.tgz to ${EXTRACT_DIR}..."
+    # -C changes to the directory before extracting
+    tar -xvzf "$PASSWORDS_ARCHIVE" -C "$EXTRACT_DIR"
+    log_info "Passwords extracted successfully.
 }
 # --- Move Crawler.py and Setup Systemd Service ---
 setup_crawler() {

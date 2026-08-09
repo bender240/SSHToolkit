@@ -8,7 +8,7 @@ git clone https://github.com/bender240/SSHToolkit
 
 cd SSHToolkit
 
-chmod + x install.sh
+chmod +x install.sh
 
 ./install.sh
 OR

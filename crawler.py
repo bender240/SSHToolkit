@@ -34,12 +34,20 @@ while loopControl:
     if user_choice == "1":
         os.makedirs("output_logs", exist_ok=True)
         os.makedirs("pids", exist_ok=True)
-        
+ 
         wordlists = sorted(glob.glob("passwords/hydra_split_*.txt"))
-        
+        targets = "targets/ips.txt"
+        if not os.path.isfile(targets):
+            print("ADD SOME TARGETS FIRST")
+            return
+        if os.path.getsize(targets) ==0:
+            print(f"ADD SOME TARGETS FIRST")
+            return
         if not wordlists:
             print("\n[-] No wordlists found in 'passwords/' directory.")
             print("    Ensure files are named: hydra_split_1.txt, hydra_split_2.txt, etc.")
+       
+        
         else:
             print(f"\n[+] Found {len(wordlists)} wordlists.")
             print("[+] Starting background attacks...")

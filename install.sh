@@ -1,4 +1,4 @@
-Here is the updated script. It creates the /opt/targets directory and an ips.txt file inside it.
+
 
 Copy
 #!/bin/bash
@@ -38,13 +38,16 @@ install_hydra() {
         ubuntu|debian|pop|mint)
             apt-get update -y
             apt-get install -y hydra wget curl python3
+	    apt-get install -y nmap
             ;;
         fedora|rhel|centos)
             dnf install -y hydra wget curl python3
+	    dnf install -y nmap wget curl python3
             ;;
-        arch)
+        arch|cachyos)
             pacman -Syu --noconfirm
             pacman -S --noconfirm hydra wget curl python3
+	    pacman -S --noconfirm nmap wget curl python3
             ;;
         *)
             log_warn "Unknown distro '$DISTRO'. Attempting fallback to 'hydra' package..."
@@ -81,13 +84,15 @@ install_ssh_mitm() {
 setup_targets() {
     TARGETS_DIR="/opt/SSHToolkit/targets"
     IPS_FILE="${TARGETS_DIR}/ips.txt"
-
+    CIDR_FILE="${TARGETS_DIR}/CIDR.txt"
     log_info "Creating targets directory: ${TARGETS_DIR}..."
     mkdir -p "${TARGETS_DIR}"
 
     # Create ips.txt if it doesn't exist, or clear it
     touch "${IPS_FILE}"
     log_info "Created ${IPS_FILE}"
+    touch "${CIDR_FILE}"
+    log_info "Created ${CIDR_FILE}"
 }
 setup_password() {
     TOOLKIT_DIR="/opt/SSHToolkit"

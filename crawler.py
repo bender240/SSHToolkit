@@ -4,6 +4,7 @@ import subprocess
 import os
 import time
 import signal
+import random 
 loopControl = True
 active_count = 0
 finished_count = 0
@@ -28,11 +29,17 @@ while loopControl:
     print("6. Print Dict. Attack Outputs")
     print("7. Check status of Dict. attack")
     print("8. Stop Dict. Attack ")
+    print("9. Scan for targets from CIDR")
     print("========================================")
     
-    user_choice = input("> ")
-
-    if user_choice == "1":
+    user_input = input("> ")
+    try:
+        user_choice = int(user_input)
+    except ValueError:
+        print("[-] Invalid option selected. Please enter a number.")
+        input("\nPress Enter to return to menu...")
+        continue
+    if user_choice == 1:
         os.makedirs("output_logs", exist_ok=True)
         os.makedirs("pids", exist_ok=True)
  
@@ -98,7 +105,7 @@ while loopControl:
 
         print(f"\n[+] {started_count} attacks started.")
 
-    elif user_choice == "2":
+    elif user_choice == 2:
             appimage_path = "mitm/ssh-mitm-x86_64.AppImage"
             mitmChoice = input("TARGET-HOST IP: ")
             proxyChoice = input("Choose Port (Press Enter or 'Y' for Default 10022): ")
@@ -117,7 +124,7 @@ while loopControl:
             process = subprocess.Popen(command)
             
 
-    elif user_choice == "3":
+    elif user_choice == 3:
         targets_file = "targets/ips.txt"
         if os.path.exists(targets_file):
             with open(targets_file, "r") as f:
@@ -129,7 +136,7 @@ while loopControl:
         else:
             print(f"[-] File not found: {targets_file}")
 
-    elif user_choice == "4":
+    elif user_choice == 4:
         user_text = input("ENTER TARGET IP: ")
         if user_text:
             with open("targets/ips.txt", "a") as f:
@@ -138,11 +145,11 @@ while loopControl:
         else:
             print("[-] No IP entered.")
 
-    elif user_choice == "5":
+    elif user_choice == 5:
         print("Exiting program.")
         loopControl = False
 
-    elif user_choice == "6":
+    elif user_choice == 6:
         log_dir = "output_logs"
         if not os.path.exists(log_dir):
             print("[-] No output logs found.")
@@ -179,7 +186,7 @@ while loopControl:
                         print("[-] Invalid input.")
 
     
-    elif user_choice == "7":
+    elif user_choice == 7:
         pid_dir = "pids"
         log_dir = "output_logs"
     
@@ -205,10 +212,8 @@ while loopControl:
                         continue
                     
                     pid = int(pid_str)
-                # The PID file is named like "hydra_split_1.pid"
                     wordlist_base_name = os.path.basename(pid_file).replace(".pid", "")
                 
-                # Define the log files based on the naming convention from Option 2
                     verbose_log_path = f"{log_dir}/{wordlist_base_name}_verbose.log"
                     login_log_path = f"{log_dir}/{wordlist_base_name}_logins.log"
 
@@ -286,7 +291,7 @@ while loopControl:
             else:
                 print(f"\n[-] All {finished_count} attack(s) finished.")
 
-    elif user_choice == "8":
+    elif user_choice == 8:
         pid_dir = "pids"
         log_dir = "output_logs"
 
@@ -334,8 +339,106 @@ while loopControl:
             else:
                 print("\nNo new attacks were stopped.")
         sys.exit()
+
+    elif user_choice == 9:
+        cidr_file_path = "/opt/SSHToolkit/targets/CIDR.txt"
+        targets_file_path = "/opt/SSHToolkit/targets/targets.txt"
+
+        if not os.path.isfile(cidr_file_path):
+            print(f"[-] Error: '{cidr_file_path}' not found.")
+            input("\nPress Enter to return...")
+            continue
+
+        try:
+            with open(cidr_file_path, 'r') as f:
+                ips = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            print(f"[-] Error reading file: {e}")
+            input("\nPress Enter to return...")
+            continue
+
+        if not ips:
+            print("[-] IP list is empty.")
+            input("\nPress Enter to return...")
+            continue
+
+        random_ip = random.choice(ips)
+        print(f"[+] Selected Random Target: {random_ip}")
+        print(f"[+] Running Nmap scan...")
+        print("-" * 30)
+
+        cmd = [
+            "nmap",
+            "-PN",
+            "-p", "22",
+            "--open"
+        ]
+        cmd.append(random_ip)
+
+        try:
+            subprocess.run(cmd, stdout=None, stderr=None, check=False)
+            print("-" * 30)
+
+            ip_check_cmd = [
+                "nmap",
+                "-PN",
+                "-p", "22",
+                "--open",
+                "-oG", "-",
+                random_ip
+            ]
+
+            check_result = subprocess.run(ip_check_cmd, capture_output=True, text=True, check=False)
+            target_ip = None
+            last_host_ip = None
+
+            if check_result.stdout:
+                for line in check_result.stdout.splitlines():
+                    if line.startswith("Host:"):
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            last_host_ip = parts[1]
+
+                        if "Ports:" in line and ("22/open/tcp" in line or "22/tcp open" in line):
+                            target_ip = last_host_ip
+                            break
+                        continue
+
+                    if "Ports:" in line and ("22/open/tcp" in line or "22/tcp open" in line):
+                        if last_host_ip:
+                            target_ip = last_host_ip
+                            break
+
+            if target_ip:
+                print(f"[+] Found Open SSH on: {target_ip}")
+                add_to_targets = input("Add to targets? (Y/N): ").strip().upper()
+                if add_to_targets == 'Y':
+                    if not os.path.isfile(targets_file_path):
+                        open(targets_file_path, 'a').close()
+
+                    with open(targets_file_path, 'r') as f:
+                        existing_ips = [line.strip() for line in f if line.strip()]
+
+                    if target_ip not in existing_ips:
+                        with open(targets_file_path, 'a') as f:
+                            f.write(f"{target_ip}\n")
+                        print(f"[+] Added {target_ip} to {targets_file_path}")
+                    else:
+                        print(f"[-] {target_ip} is already in {targets_file_path}")
+                else:
+                    print("[-] Skipped.")
+            else:
+                print("[-] No open SSH port found.")
+
+        except FileNotFoundError:
+            print("[-] Nmap command not found. Is it installed?")
+        except Exception as e:
+            print(f"[-] Error: {e}")
+
+        input("\nPress Enter to return to menu...")
+
     else:
         print("Invalid option selected.")
 
-    input("\nPress Enter to return to menu...")
+        input("\nPress Enter to return to menu...")
 

@@ -4,7 +4,70 @@ import subprocess
 import os
 import time
 import signal
-import random 
+import random
+
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+TARGETS_DIR = os.path.join(APP_ROOT, "targets")
+TARGETS_FILE = os.path.join(TARGETS_DIR, "targets.txt")
+LEGACY_TARGETS_FILE = os.path.join(TARGETS_DIR, "ips.txt")
+PASSWORDS_DIR = os.path.join(APP_ROOT, "passwords")
+OUTPUT_LOGS_DIR = os.path.join(APP_ROOT, "output_logs")
+PIDS_DIR = os.path.join(APP_ROOT, "pids")
+
+
+def ensure_targets_dir():
+    os.makedirs(TARGETS_DIR, exist_ok=True)
+
+
+def sync_target_files():
+    ensure_targets_dir()
+    merged = load_target_ips()
+    if not merged:
+        return
+
+    with open(TARGETS_FILE, "w") as outfile:
+        for ip in merged:
+            outfile.write(f"{ip}\n")
+
+    if os.path.exists(LEGACY_TARGETS_FILE):
+        with open(LEGACY_TARGETS_FILE, "w") as legacy_file:
+            for ip in merged:
+                legacy_file.write(f"{ip}\n")
+
+
+def load_target_ips():
+    ensure_targets_dir()
+    target_files = []
+    for candidate in (TARGETS_FILE, LEGACY_TARGETS_FILE):
+        if os.path.isfile(candidate):
+            target_files.append(candidate)
+
+    targets = []
+    seen = set()
+    for target_file in target_files:
+        try:
+            with open(target_file, "r") as f:
+                for line in f:
+                    ip = line.strip()
+                    if ip and ip not in seen:
+                        targets.append(ip)
+                        seen.add(ip)
+        except OSError:
+            continue
+    return targets
+
+
+def append_target_ip(ip):
+    ensure_targets_dir()
+    existing = load_target_ips()
+    if ip not in existing:
+        with open(TARGETS_FILE, "a") as f:
+            f.write(f"{ip}\n")
+        sync_target_files()
+        return True
+    return False
+
+
 loopControl = True
 active_count = 0
 finished_count = 0
@@ -40,16 +103,14 @@ while loopControl:
         input("\nPress Enter to return to menu...")
         continue
     if user_choice == 1:
-        os.makedirs("output_logs", exist_ok=True)
-        os.makedirs("pids", exist_ok=True)
+        os.makedirs(OUTPUT_LOGS_DIR, exist_ok=True)
+        os.makedirs(PIDS_DIR, exist_ok=True)
  
-        wordlists = sorted(glob.glob("passwords/hydra_split_*.txt"))
-        targets = "targets/ips.txt"
-        if not os.path.isfile(targets):
+        wordlists = sorted(glob.glob(os.path.join(PASSWORDS_DIR, "hydra_split_*.txt")))
+        sync_target_files()
+        targets = load_target_ips()
+        if not targets:
             print("ADD SOME TARGETS FIRST...exiting")
-            sys.exit()
-        if os.path.getsize(targets) ==0:
-            print(f"ADD SOME TARGETS FIRST...exiting")
             sys.exit()
         if not wordlists:
             print("\n[-] No wordlists found in 'passwords/' directory.")
@@ -69,15 +130,15 @@ while loopControl:
                 name_no_ext = os.path.splitext(base_name)[0]
             
            
-                login_log_filename = f"output_logs/{name_no_ext}_logins.log"
-                verbose_log_filename = f"output_logs/{name_no_ext}_verbose.log"
+                login_log_filename = os.path.join(OUTPUT_LOGS_DIR, f"{name_no_ext}_logins.log")
+                verbose_log_filename = os.path.join(OUTPUT_LOGS_DIR, f"{name_no_ext}_verbose.log")
                 print(f"  Starting attack for: {base_name}")
 
             
                 cmd = (
                     f"/usr/bin/hydra -l root "
                     f"-P \"{wordlist}\" "
-                    f"-M \"{targets}\" "
+                    f"-M \"{TARGETS_FILE}\" "
                     f"ssh "
                     f"-o \"{login_log_filename}\" "
                     f"-vV "
@@ -91,7 +152,7 @@ while loopControl:
                     preexec_fn=os.setsid 
                 )
                 
-                pid_file = f"pids/{name_no_ext}.pid"
+                pid_file = os.path.join(PIDS_DIR, f"{name_no_ext}.pid")
                 with open(pid_file, "w") as f:
                     f.write(str(p.pid))
                 
@@ -125,23 +186,22 @@ while loopControl:
             
 
     elif user_choice == 3:
-        targets_file = "targets/ips.txt"
-        if os.path.exists(targets_file):
-            with open(targets_file, "r") as f:
-                lines = [line.strip() for line in f.readlines() if line.strip()]
-            
+        lines = load_target_ips()
+        if lines:
             print(f"\nTarget Count: {len(lines)}")
             for ip in lines:
                 print(f" - {ip}")
         else:
-            print(f"[-] File not found: {targets_file}")
+            print(f"[-] No targets found in {TARGETS_FILE} or {LEGACY_TARGETS_FILE}")
 
     elif user_choice == 4:
         user_text = input("ENTER TARGET IP: ")
         if user_text:
-            with open("targets/ips.txt", "a") as f:
-                f.write(user_text + "\n")
-            print(f"[+] Target '{user_text}' added to targets/ips.txt")
+            added = append_target_ip(user_text)
+            if added:
+                print(f"[+] Target '{user_text}' added to {TARGETS_FILE}")
+            else:
+                print(f"[-] Target '{user_text}' already exists in the target list")
         else:
             print("[-] No IP entered.")
 
@@ -150,11 +210,11 @@ while loopControl:
         loopControl = False
 
     elif user_choice == 6:
-        log_dir = "output_logs"
+        log_dir = OUTPUT_LOGS_DIR
         if not os.path.exists(log_dir):
             print("[-] No output logs found.")
         else:
-            log_files = glob.glob(f"{log_dir}/*.log")
+            log_files = glob.glob(os.path.join(log_dir, "*.log"))
             if not log_files:
                 print("[-] No .log files found in output_logs/")
             else:
@@ -187,13 +247,13 @@ while loopControl:
 
     
     elif user_choice == 7:
-        pid_dir = "pids"
-        log_dir = "output_logs"
+        pid_dir = PIDS_DIR
+        log_dir = OUTPUT_LOGS_DIR
     
         os.makedirs(pid_dir, exist_ok=True)
         os.makedirs(log_dir, exist_ok=True)
 
-        pid_files = glob.glob(f"{pid_dir}/*.pid")
+        pid_files = glob.glob(os.path.join(pid_dir, "*.pid"))
     
         if not pid_files:
             print("\n--- No Active Background Attacks ---")
@@ -292,10 +352,10 @@ while loopControl:
                 print(f"\n[-] All {finished_count} attack(s) finished.")
 
     elif user_choice == 8:
-        pid_dir = "pids"
-        log_dir = "output_logs"
+        pid_dir = PIDS_DIR
+        log_dir = OUTPUT_LOGS_DIR
 
-        pid_files = glob.glob(f"{pid_dir}/*.pid")
+        pid_files = glob.glob(os.path.join(pid_dir, "*.pid"))
 
         if not pid_files:
             print("\n--- No Active Background Attacks ---")
@@ -416,12 +476,10 @@ while loopControl:
                     if not os.path.isfile(targets_file_path):
                         open(targets_file_path, 'a').close()
 
-                    with open(targets_file_path, 'r') as f:
-                        existing_ips = [line.strip() for line in f if line.strip()]
+                    existing_ips = load_target_ips()
 
                     if target_ip not in existing_ips:
-                        with open(targets_file_path, 'a') as f:
-                            f.write(f"{target_ip}\n")
+                        append_target_ip(target_ip)
                         print(f"[+] Added {target_ip} to {targets_file_path}")
                     else:
                         print(f"[-] {target_ip} is already in {targets_file_path}")
